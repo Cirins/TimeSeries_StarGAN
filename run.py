@@ -1,7 +1,7 @@
 import subprocess
 
 
-dataset = 'realworld' # 'realworld' or 'cwru'
+dataset = 'cwru' # 'realworld' or 'cwru'
 
 if dataset == 'realworld':
     dataset_name = 'realworld_128_3ch_4cl'
@@ -50,36 +50,10 @@ sample_every = 1000
 eval_every = 10000
 
 
-# Launch training
-print('\n\nStarting training phase...\n\n')
-subprocess.run(['python', 'main.py',
-                '--mode', 'train',
-                '--dataset', dataset,
-                '--dataset_name', dataset_name,
-                '--class_names', ','.join(class_names),
-                '--channel_names', ','.join(channel_names),
-                '--num_timesteps', str(num_timesteps),
-                '--num_channels', str(num_channels),
-                '--num_train_domains', str(num_train_domains),
-                '--num_test_domains', str(num_test_domains),
-                '--num_classes', str(num_classes),
-                '--lambda_cyc', str(lambda_cyc),
-                '--lambda_id', str(lambda_id),
-                '--lambda_dom', str(lambda_dom),
-                # '--dom_start', str(dom_start),
-                # '--dom_iter', str(dom_iter),
-                '--lambda_ds', str(lambda_ds),
-                '--print_every', str(print_every),
-                '--save_every', str(save_every),
-                '--sample_every', str(sample_every),
-                '--eval_every', str(eval_every),
-                '--total_iters', str(total_iters)])
-
-
-# # Launch evaluation
-# print('\n\nStarting evaluation phase...\n\n')
+# # Launch training
+# print('\n\nStarting training phase...\n\n')
 # subprocess.run(['python', 'main.py',
-#                 '--mode', 'eval',
+#                 '--mode', 'train',
 #                 '--dataset', dataset,
 #                 '--dataset_name', dataset_name,
 #                 '--class_names', ','.join(class_names),
@@ -89,6 +63,32 @@ subprocess.run(['python', 'main.py',
 #                 '--num_train_domains', str(num_train_domains),
 #                 '--num_test_domains', str(num_test_domains),
 #                 '--num_classes', str(num_classes),
-#                 '--resume_iter', str(total_iters)])
+#                 '--lambda_cyc', str(lambda_cyc),
+#                 '--lambda_id', str(lambda_id),
+#                 '--lambda_dom', str(lambda_dom),
+#                 # '--dom_start', str(dom_start),
+#                 # '--dom_iter', str(dom_iter),
+#                 '--lambda_ds', str(lambda_ds),
+#                 '--print_every', str(print_every),
+#                 '--save_every', str(save_every),
+#                 '--sample_every', str(sample_every),
+#                 '--eval_every', str(eval_every),
+#                 '--total_iters', str(total_iters)])
+
+
+# Launch evaluation
+print('\n\nStarting evaluation phase...\n\n')
+subprocess.run(['python', 'main.py',
+                '--mode', 'eval',
+                '--dataset', dataset,
+                '--dataset_name', dataset_name,
+                '--class_names', ','.join(class_names),
+                '--channel_names', ','.join(channel_names),
+                '--num_timesteps', str(num_timesteps),
+                '--num_channels', str(num_channels),
+                '--num_train_domains', str(num_train_domains),
+                '--num_test_domains', str(num_test_domains),
+                '--num_classes', str(num_classes),
+                '--resume_iter', str(222000)])
 
 
