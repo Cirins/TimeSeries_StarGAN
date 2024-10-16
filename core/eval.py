@@ -45,12 +45,12 @@ def calculate_metrics(nets, args, step, mode='latent'):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     domain_classifier_te = DomainClassifier(args.num_timesteps, args.num_channels, args.num_test_domains, args.num_classes)
-    filename = f'pretrained_nets/domain_classifier_{args.dataset}_te.ckpt'
+    filename = f'pretrained_nets/domain_classifier_{args.dataset}_dp.ckpt'
     domain_classifier_te.load_state_dict(torch.load(filename, map_location=device, weights_only=False))
     domain_classifier_te = domain_classifier_te.to(device)
 
     siamese_net_te = SiameseNet(args.num_channels, args.num_classes, args.num_timesteps)
-    filename = f'pretrained_nets/siamese_net_{args.dataset}_te.ckpt'
+    filename = f'pretrained_nets/siamese_net_{args.dataset}_dp.ckpt'
     siamese_net_te.load_state_dict(torch.load(filename, map_location=device, weights_only=False))
     siamese_net_te = siamese_net_te.to(device)
 

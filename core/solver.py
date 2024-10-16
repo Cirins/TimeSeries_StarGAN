@@ -24,13 +24,13 @@ class Solver(nn.Module):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print('Running on', self.device)
 
-        self.nets, self.nets_ema, self.domain_classifier_tr, self.trts_classifier_tr = build_model(args)
+        self.nets, self.nets_ema, self.domain_classifier_df, self.trts_classifier_tr = build_model(args)
         # below setattrs are to make networks be children of Solver, e.g., for self.to(self.device)
         for name, module in self.nets.items():
             utils.print_network(module, name)
             setattr(self, name, module)
-        setattr(self, 'domain_classifier_tr', self.domain_classifier_tr)
-        utils.print_network(self.domain_classifier_tr, 'domain_classifier_tr')
+        setattr(self, 'domain_classifier_df', self.domain_classifier_df)
+        utils.print_network(self.domain_classifier_df, 'domain_classifier_df')
         setattr(self, 'trts_classifier_tr', self.trts_classifier_tr)
         utils.print_network(self.trts_classifier_tr, 'trts_classifier_tr')
         for name, module in self.nets_ema.items():
@@ -38,8 +38,8 @@ class Solver(nn.Module):
 
         # Load the pretrained domain classifier
         print('Loading the pretrained domain classifier...')
-        self.domain_classifier_tr.load_state_dict(torch.load(f'pretrained_nets/domain_classifier_{args.dataset}_tr.ckpt', map_location=self.device))
-        self.domain_classifier_tr.eval()
+        self.domain_classifier_df.load_state_dict(torch.load(f'pretrained_nets/domain_classifier_{args.dataset}_df.ckpt', map_location=self.device))
+        self.domain_classifier_df.eval()
 
         # # Load the pretrained trts classifier
         # print('Loading the pretrained trts classifier...')
@@ -65,7 +65,7 @@ class Solver(nn.Module):
 
         self.to(self.device)
         for name, network in self.named_children():
-            if ('ema' not in name) and ('domain_classifier_tr' not in name) and ('trts_classifier_tr' not in name):
+            if ('ema' not in name) and ('domain_classifier_df' not in name) and ('trts_classifier_tr' not in name):
                 print('Initializing %s...' % name)
                 network.apply(utils.he_init)
 
@@ -84,7 +84,7 @@ class Solver(nn.Module):
     def train(self, loaders):
         args = self.args
         nets = self.nets
-        domain_classifier_tr = self.domain_classifier_tr
+        domain_classifier_df = self.domain_classifier_df
         trts_classifier_tr = self.trts_classifier_tr
         nets_ema = self.nets_ema
         optims = self.optims
@@ -136,7 +136,7 @@ class Solver(nn.Module):
 
             # train the generator
             if i % args.n_critic == 0:
-                g_loss, g_losses_latent = compute_g_loss(nets, i, args, domain_classifier_tr, trts_classifier_tr,
+                g_loss, g_losses_latent = compute_g_loss(nets, i, args, domain_classifier_df, trts_classifier_tr,
                                                          x_real, y_org, y_trg, k_org, z_trgs=[z_trg, z_trg2], loss_type=args.loss_type)
                 self._reset_grad()
                 g_loss.backward()
@@ -144,7 +144,7 @@ class Solver(nn.Module):
                 optims.mapping_network.step()
                 optims.style_encoder.step()
 
-                g_loss, g_losses_ref = compute_g_loss(nets, i, args, domain_classifier_tr, trts_classifier_tr,
+                g_loss, g_losses_ref = compute_g_loss(nets, i, args, domain_classifier_df, trts_classifier_tr,
                                                       x_real, y_org, y_trg, k_org, x_refs=[x_ref, x_ref2], loss_type=args.loss_type)
                 self._reset_grad()
                 g_loss.backward()
@@ -191,7 +191,7 @@ class Solver(nn.Module):
                 self._save_checkpoint(step=i+1)
 
             # compute evaluation metrics
-            if (i+1) % args.eval_every == 0:
+            if args.eval_every > 0 and (i + 1) % args.eval_every == 0:
                 calculate_metrics(nets_ema, args, i+1, mode='latent')
                 calculate_metrics(nets_ema, args, i+1, mode='reference')
 
@@ -246,7 +246,7 @@ def compute_d_loss(nets, args, x_real, y_org, y_trg, z_trg=None, x_ref=None, los
                            reg=loss_reg.item())
 
 
-def compute_g_loss(nets, step, args, domain_classifier_tr, trts_classifier_tr,
+def compute_g_loss(nets, step, args, domain_classifier_df, trts_classifier_tr,
                    x_real, y_org, y_trg, k_org, z_trgs=None, x_refs=None, loss_type='minimax'):
     assert (z_trgs is None) != (x_refs is None)
     if z_trgs is not None:
@@ -288,7 +288,7 @@ def compute_g_loss(nets, step, args, domain_classifier_tr, trts_classifier_tr,
     loss_id = torch.mean(torch.abs(x_id - x_real))
 
     # domain loss
-    k_fake = domain_classifier_tr(x_fake, y_trg)
+    k_fake = domain_classifier_df(x_fake, y_trg)
     loss_dom = nn.CrossEntropyLoss()(k_fake, k_org)
 
     # # TRTS loss

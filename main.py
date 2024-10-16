@@ -213,7 +213,7 @@ if __name__ == '__main__':
                         help='Directory for saving network checkpoints')
     parser.add_argument('--history_dir', type=str, default='expr/history',
                         help='Directory for saving training history')
-    parser.add_argument('--eval_dir', type=str, default='expr/eval',
+    parser.add_argument('--eval_dir', type=str, default=f'expr/eval',
                         help='Directory for saving metrics')
     parser.add_argument('--syn_dir', type=str, default='expr/syn_datasets',
                         help='Directory for saving synthetic samples')
@@ -227,4 +227,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args.class_names = args.class_names.split(',')
     args.channel_names = args.channel_names.split(',')
+    args.eval_dir = f'expr/eval_{args.dataset}'
     main(args)
