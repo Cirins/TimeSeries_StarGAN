@@ -7,6 +7,8 @@ import torch
 
 import numpy as np
 
+import datetime
+
 from core.data_loader import get_train_loader, get_eval_loader
 from core.solver import Solver
 
@@ -207,16 +209,16 @@ if __name__ == '__main__':
                         help='Number of synthetic datasets to generate')
 
     # directory for training
-    parser.add_argument('--sample_dir', type=str, default='expr/samples',
-                        help='Directory for saving generated samples')
-    parser.add_argument('--checkpoint_dir', type=str, default='expr/checkpoints',
-                        help='Directory for saving network checkpoints')
-    parser.add_argument('--history_dir', type=str, default='expr/history',
-                        help='Directory for saving training history')
-    parser.add_argument('--eval_dir', type=str, default=f'expr/eval',
-                        help='Directory for saving metrics')
-    parser.add_argument('--syn_dir', type=str, default='expr/syn_datasets',
-                        help='Directory for saving synthetic samples')
+    # parser.add_argument('--sample_dir', type=str, default='expr/samples',
+    #                     help='Directory for saving generated samples')
+    # parser.add_argument('--checkpoint_dir', type=str, default='expr/checkpoints',
+    #                     help='Directory for saving network checkpoints')
+    # parser.add_argument('--history_dir', type=str, default='expr/history',
+    #                     help='Directory for saving training history')
+    # parser.add_argument('--eval_dir', type=str, default=f'expr/eval',
+    #                     help='Directory for saving metrics')
+    # parser.add_argument('--syn_dir', type=str, default='expr/syn_datasets',
+    #                     help='Directory for saving synthetic samples')
 
     # step size
     parser.add_argument('--print_every', type=int, default=100)
@@ -227,5 +229,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args.class_names = args.class_names.split(',')
     args.channel_names = args.channel_names.split(',')
-    args.eval_dir = f'expr/eval_{args.dataset}'
+
+    args.expr_dir = f'expr_{args.dataset}'
+    args.sample_dir = os.path.join(args.expr_dir, 'samples')
+    args.checkpoint_dir = os.path.join(args.expr_dir, 'checkpoints')
+    args.history_dir = os.path.join(args.expr_dir, 'history')
+    args.eval_dir = os.path.join(args.expr_dir, 'eval')
+    args.syn_dir = os.path.join(args.expr_dir, 'syn_datasets')
+
     main(args)
