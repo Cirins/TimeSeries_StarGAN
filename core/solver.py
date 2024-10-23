@@ -203,7 +203,7 @@ class Solver(nn.Module):
         self._load_checkpoint(args.resume_iter)
         sample_all(nets_ema, args)
 
-    @torch.no_grad()
+    # @torch.no_grad()
     def evaluate(self, loaders):
         args = self.args
         nets_ema = self.nets_ema

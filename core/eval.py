@@ -36,7 +36,7 @@ def get_data(dataset_name, class_idx, num_train_domains):
     return x_, y_, k_
 
 
-@torch.no_grad()
+# @torch.no_grad()
 def calculate_metrics(nets, args, step, mode='latent'):
     print('\nCalculating evaluation metrics in %s mode...\n' % mode)
 
@@ -46,12 +46,12 @@ def calculate_metrics(nets, args, step, mode='latent'):
 
     domain_classifier_te = DomainClassifier(args.num_timesteps, args.num_channels, args.num_test_domains, args.num_classes)
     filename = f'pretrained_nets/domain_classifier_{args.dataset}_dp.ckpt'
-    domain_classifier_te.load_state_dict(torch.load(filename, map_location=device, weights_only=False))
+    domain_classifier_te.load_state_dict(torch.load(filename, map_location=device))
     domain_classifier_te = domain_classifier_te.to(device)
 
     siamese_net_te = SiameseNet(args.num_channels, args.num_classes, args.num_timesteps)
     filename = f'pretrained_nets/siamese_net_{args.dataset}_dp.ckpt'
-    siamese_net_te.load_state_dict(torch.load(filename, map_location=device, weights_only=False))
+    siamese_net_te.load_state_dict(torch.load(filename, map_location=device))
     siamese_net_te = siamese_net_te.to(device)
 
     classes_dict = {clss: i for i, clss in enumerate(args.class_names)}
@@ -76,19 +76,20 @@ def calculate_metrics(nets, args, step, mode='latent'):
             trg_idx = classes_dict[trg_class]
             y_trg = torch.tensor([trg_idx] * N).to(device)
 
-            if mode == 'latent':
-                z_trg = torch.randn(N, args.latent_dim).to(device)
-                s_trg = nets.mapping_network(z_trg, y_trg)
-            else: # mode == 'reference'
-                x_ref = get_data(args.dataset_name, trg_idx, args.num_train_domains)[0]
-                N2 = len(x_ref)
-                replace = N2 < N
-                idx = np.random.choice(N2, N, replace=replace)
-                x_ref = torch.tensor(x_ref[idx], dtype=torch.float32).to(device)
-                s_trg = nets.style_encoder(x_ref, y_trg)
+            with torch.no_grad():
+                if mode == 'latent':
+                    z_trg = torch.randn(N, args.latent_dim).to(device)
+                    s_trg = nets.mapping_network(z_trg, y_trg)
+                else: # mode == 'reference'
+                    x_ref = get_data(args.dataset_name, trg_idx, args.num_train_domains)[0]
+                    N2 = len(x_ref)
+                    replace = N2 < N
+                    idx = np.random.choice(N2, N, replace=replace)
+                    x_ref = torch.tensor(x_ref[idx], dtype=torch.float32).to(device)
+                    s_trg = nets.style_encoder(x_ref, y_trg)
 
-            x_fake = nets.generator(x_src, s_trg)
-            k_fake = k_src.copy()
+                x_fake = nets.generator(x_src, s_trg)
+                k_fake = k_src.copy()
 
             domain_scores = calculate_domain_scores(domain_classifier_te, x_fake, y_trg, k_fake, src_class, trg_class)
             save_domain_scores(domain_scores, src_class, trg_class, step, mode, args.eval_dir)
@@ -101,8 +102,8 @@ def calculate_metrics(nets, args, step, mode='latent'):
             syn_labels.append(y_trg)
             syn_doms.append(k_fake)
 
-        syn_data = torch.cat(syn_data, dim=0)
-        syn_labels = torch.cat(syn_labels, dim=0)
+        syn_data = torch.cat(syn_data, dim=0).cpu().detach().numpy()
+        syn_labels = torch.cat(syn_labels, dim=0).cpu().detach().numpy()
         syn_doms = np.concatenate(syn_doms, axis=0)
 
         calculate_classification_scores(syn_data, syn_labels, syn_doms, src_class, trg_classes, step, mode, 

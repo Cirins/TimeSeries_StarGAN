@@ -2,8 +2,46 @@ import os
 import csv
 import pickle
 import numpy as np
-from statsmodels.regression.linear_model import burg
-import lightgbm as lgb
+import torch
+import torch.nn as nn
+from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader, TensorDataset
+from torch.optim.lr_scheduler import LambdaLR
+import torch.optim as optim
+
+class TSTRClassifier(nn.Module):
+    def __init__(self, num_timesteps=128, num_channels=3, num_classes=5):
+        super(TSTRClassifier, self).__init__()
+
+        self.conv1 = nn.Conv1d(num_channels, 16, kernel_size=5, stride=1, padding=2)
+        self.bn1 = nn.BatchNorm1d(16)
+        self.conv2 = nn.Conv1d(16, 32, kernel_size=5, stride=1, padding=2)
+        self.bn2 = nn.BatchNorm1d(32)
+        self.conv3 = nn.Conv1d(32, 64, kernel_size=5, stride=1, padding=2)
+        self.bn3 = nn.BatchNorm1d(64)
+        self.conv4 = nn.Conv1d(64, 128, kernel_size=5, stride=1, padding=2)
+        self.bn4 = nn.BatchNorm1d(128)
+        self.pool = nn.MaxPool1d(kernel_size=2, stride=2)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(p=0.25)
+        
+        self.fc_shared = nn.Linear(num_timesteps * 8, 100)
+
+        self.fc_class = nn.Linear(100, num_classes)
+
+    def forward(self, x):
+        x = self.pool(self.relu(self.bn1(self.conv1(x))))
+        x = self.pool(self.relu(self.bn2(self.conv2(x))))
+        x = self.pool(self.relu(self.bn3(self.conv3(x))))
+        x = self.pool(self.relu(self.bn4(self.conv4(x))))
+        x = x.view(x.size(0), -1)  # Flatten
+        x = self.dropout(x)
+        x = self.relu(self.fc_shared(x))
+        
+        # Final output for class prediction
+        class_outputs = self.fc_class(x)
+        return class_outputs
+
 
 
 def get_data(dataset_name, class_idx, num_train_domains):
@@ -30,10 +68,7 @@ def get_data(dataset_name, class_idx, num_train_domains):
 def calculate_classification_scores(syn_data, syn_labels, syn_doms, src_class, trg_classes, step, mode, 
                                     eval_dir, class_names, dataset_name, num_train_domains):
 
-    print('Calculating classification score for %s source...' % src_class)
-
-    syn_data = syn_data.cpu().detach().numpy()
-    syn_labels = syn_labels.cpu().detach().numpy()
+    print('Calculating TSTR score for %s source...\n' % src_class)
 
     classes_dict = {clss: i for i, clss in enumerate(class_names)}
 
@@ -54,9 +89,6 @@ def calculate_classification_scores(syn_data, syn_labels, syn_doms, src_class, t
     trg_labels = np.concatenate(trg_labels, axis=0)
     trg_doms = np.concatenate(trg_doms, axis=0)
 
-    syn_features = extract_features(syn_data)
-    trg_features = extract_features(trg_data)
-
     assert np.array_equal(np.unique(syn_doms), np.unique(trg_doms))
     assert np.array_equal(np.unique(syn_labels), np.unique(trg_labels))
 
@@ -64,109 +96,142 @@ def calculate_classification_scores(syn_data, syn_labels, syn_doms, src_class, t
     loglosses = []
 
     for domain in np.unique(syn_doms):
-        syn_features_dom = syn_features[syn_doms == domain]
-        trg_features_dom = trg_features[trg_doms == domain]
+        syn_data_dom = syn_data[syn_doms == domain]
+        trg_data_dom = trg_data[trg_doms == domain]
 
         syn_labels_dom = syn_labels[syn_doms == domain]
         trg_labels_dom = trg_labels[trg_doms == domain]
+
+        print(f'Domain: {domain}, Source: {src_class}, Target: {trg_classes}, Syn data: {syn_data_dom.shape}, Trg data: {trg_data_dom.shape}\n')
         
         label_mapping = {old_label: new_label for new_label, old_label in enumerate(np.unique(syn_labels))}
         syn_labels_dom = np.array([label_mapping[x] for x in syn_labels_dom])
         trg_labels_dom = np.array([label_mapping[x] for x in trg_labels_dom])
 
-        train_data = lgb.Dataset(syn_features_dom, label=syn_labels_dom)
+        acc, logloss = compute_accuracy(syn_data_dom, syn_labels_dom, trg_data_dom, trg_labels_dom)
 
-        num_classes = len(np.unique(syn_labels_dom))
-
-        params = {
-            'objective': 'multiclass' if num_classes > 2 else 'binary',
-            'num_class': num_classes if num_classes > 2 else 1,
-            'metric': 'multi_logloss' if num_classes > 2 else 'binary_logloss',
-            'seed': 2710,
-            'verbosity': -1
-        }
-
-        model = lgb.train(params, train_data)
-
-        preds = model.predict(trg_features_dom)
-        eps = 1e-6
-        preds = np.clip(preds, eps, 1 - eps)
-
-        # Calculate accuracy and logloss
-        if num_classes > 2:
-            acc = np.mean(np.argmax(preds, axis=1) == trg_labels_dom)
-            logloss = -np.mean(np.log(preds[np.arange(len(trg_labels_dom)), trg_labels_dom]))
-        else:
-            acc = np.mean((preds > 0.5).astype(int) == trg_labels_dom)
-            logloss = -np.mean(trg_labels_dom * np.log(preds) + (1 - trg_labels_dom) * np.log(1 - preds))
-
-        # print(f'Domain: {domain}, Accuracy: {acc:.4f}, Logloss: {logloss:.4f}')
+        print(f'Domain: {domain}, Accuracy: {acc:.4f}, Logloss: {logloss:.4f}')
         classification_scores = (acc, logloss)
         save_classification_scores(classification_scores, src_class, domain, step, mode, eval_dir, num_train_domains)
 
         accs.append(acc)
         loglosses.append(logloss)
 
-    print(f'Mean accuracy: {np.mean(accs):.4f}, Mean logloss: {np.mean(loglosses):.4f}\n')
+    print(f'\nMean accuracy: {np.mean(accs):.4f}, Mean logloss: {np.mean(loglosses):.4f}\n\n')
 
     return accs, loglosses
 
 
-def safe_burg(x, order=4):
-    if np.std(x) > 1e-6:  # Ensures there's enough variation in the data
-        return burg(x, order)[0]
-    else:
-        return np.zeros(order)  # Return zeroed features if input data is constant
+
+def compute_accuracy(x_train, y_train, x_test, y_test):
+    x_tr, x_val, y_tr, y_val = train_test_split(x_train, y_train, test_size=0.2, random_state=2710, stratify=y_train, shuffle=True)
+    tr_loader, val_loader, test_loader = setup_training(x_tr, y_tr, x_val, y_val, x_test, y_test, batch_size=64)
     
+    model = TSTRClassifier(num_timesteps=x_train.shape[2], num_channels=x_train.shape[1], num_classes=len(np.unique(y_train)))
+    loss_fn = nn.CrossEntropyLoss()
+    initial_lr = 0.0001
+    optimizer = optim.Adam(model.parameters(), lr=initial_lr)
 
-# Ensure no zero values in the entropy calculation
-def entropy_safe(x):
-    x_safe = np.clip(x, 1e-6, None)  # clip only lower bound
-    return -np.sum(x_safe * np.log(x_safe), axis=2)
+    best_model_state = train_model(model, tr_loader, val_loader, loss_fn, optimizer, epochs=50)
+    best_model = TSTRClassifier(num_timesteps=x_train.shape[2], num_channels=x_train.shape[1], num_classes=len(np.unique(y_train)))
+    best_model.load_state_dict(best_model_state)
+    test_accuracy, test_loss = evaluate_model(best_model, test_loader, loss_fn)
+
+    return test_accuracy, test_loss
 
 
-def extract_features_all(x):
-    mean = np.mean(x, axis=2)
-    std = np.std(x, axis=2)
-    var = np.var(x, axis=2)
-    min = np.min(x, axis=2)
-    max = np.max(x, axis=2)
-    thirdmoment = np.mean((x - np.mean(x, axis=2, keepdims=True))**3, axis=2)
-    fourthmoment = np.mean((x - np.mean(x, axis=2, keepdims=True))**4, axis=2)
-    skewness = thirdmoment / ((std+1e-6)**3)
-    kurtosis = fourthmoment / ((std+1e-6)**4)
-    mad = np.median(np.abs(x - np.median(x, axis=2, keepdims=True)), axis=2)
-    sma = np.sum(np.abs(x), axis=2)
-    energy = np.sum(x**2, axis=2)
-    iqr = np.percentile(x, 75, axis=2) - np.percentile(x, 25, axis=2)
-    firstquartile = np.percentile(x, 25, axis=2)
-    secondquartile = np.percentile(x, 50, axis=2)
-    thirdquartile = np.percentile(x, 75, axis=2)
-    entropy = entropy_safe(x)
-    autocorr_x = np.array([safe_burg(x[i, 0, :], order=4) for i in range(x.shape[0])])
-    autocorr_y = np.array([burg(x[i, 1, :], order=4)[0] for i in range(x.shape[0])])
-    autocorr_z = np.array([burg(x[i, 2, :], order=4)[0] for i in range(x.shape[0])])
+def setup_training(x_tr, y_tr, x_val, y_val, x_test, y_test, batch_size=64):
+    # Convert numpy arrays to torch tensors
+    x_train_tensor = torch.tensor(x_tr, dtype=torch.float32)
+    y_train_tensor = torch.tensor(y_tr, dtype=torch.long)
+    x_val_tensor = torch.tensor(x_val, dtype=torch.float32)
+    y_val_tensor = torch.tensor(y_val, dtype=torch.long)
+    x_test_tensor = torch.tensor(x_test, dtype=torch.float32)
+    y_test_tensor = torch.tensor(y_test, dtype=torch.long)
+
+    # Create datasets and loaders
+    train_dataset = TensorDataset(x_train_tensor, y_train_tensor)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_dataset = TensorDataset(x_val_tensor, y_val_tensor)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    test_dataset = TensorDataset(x_test_tensor, y_test_tensor)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+    return train_loader, val_loader, test_loader
+
+
+def train_model(model, train_loader, val_loader, loss_fn, optimizer, epochs=300):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+
+    loss_train = []
+    loss_val = []
+    accuracy_val = []
+    best_loss = np.inf
+    best_accuracy = 0
+
+    # Set up linear learning rate decay
+    lambda_lr = lambda epoch: 1 - epoch / epochs
+    scheduler = LambdaLR(optimizer, lr_lambda=lambda_lr)
+
+    for epoch in range(epochs):
+        model.train()
+        total_loss = 0
+        for x_batch, y_batch in train_loader:
+            x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+            optimizer.zero_grad()
+            outputs = model(x_batch)
+            loss = loss_fn(outputs, y_batch)
+            loss.backward()
+            optimizer.step()
+            total_loss += loss.item()
+        total_loss /= len(train_loader)
+        loss_train.append(total_loss)
+
+        # Update learning rate
+        scheduler.step()
+
+        val_accuracy, val_loss = evaluate_model(model, val_loader, loss_fn)
+        if val_accuracy > best_accuracy:
+            best_epoch = epoch
+            best_accuracy = val_accuracy
+            best_loss = val_loss
+            best_model_state = model.state_dict().copy()
+        loss_val.append(val_loss)
+        accuracy_val.append(val_accuracy)
+
+        current_lr = scheduler.get_last_lr()[0]
+        print(f"Epoch {epoch + 1}/{epochs} - Train loss: {total_loss:.4f} - Val loss: {val_loss:.4f} - Val accuracy: {val_accuracy:.4f} - LR: {current_lr:.6f}")
     
-    return np.concatenate([mean, std, var, min, max, thirdmoment, fourthmoment, 
-                           skewness, kurtosis, mad, sma, energy, iqr, firstquartile, 
-                           secondquartile, thirdquartile, entropy, 
-                           autocorr_x, autocorr_y, autocorr_z], axis=1)
+    print(f"\nBest epoch: {best_epoch + 1} - Best val accuracy: {best_accuracy:.4f} - Best val loss: {best_loss:.4f}\n")
 
-def extract_temporal_features(x):
-    x = np.clip(x, 0, 1)
-    return extract_features_all(x)
+    return best_model_state
 
 
-def extract_spectral_features(x):
-    x_freq = np.fft.rfft(x, axis=2)
-    x_mag = np.abs(x_freq)
-    return extract_features_all(x_mag)
+def evaluate_model(model, test_loader, loss_fn):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+    model.eval()
+    total_loss = 0
+    correct_predictions = 0
+    total_predictions = 0
 
+    with torch.no_grad():
+        for x_batch, y_batch in test_loader:
+            x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+            outputs = model(x_batch)
+            loss = loss_fn(outputs, y_batch)
+            total_loss += loss.item()
 
-def extract_features(x):
-    x_temporal = extract_temporal_features(x)
-    x_spectral = extract_spectral_features(x)
-    return np.concatenate([x_temporal, x_spectral], axis=1)
+            _, predicted_labels = torch.max(outputs, 1)
+            correct_predictions += (predicted_labels == y_batch).sum().item()
+            total_predictions += len(y_batch)
+
+    total_loss /= len(test_loader)
+    accuracy = correct_predictions / total_predictions
+
+    return accuracy, total_loss
+    
 
 
 
@@ -174,7 +239,7 @@ def save_classification_scores(classification_scores, src_class, domain, step, m
     # Ensure the directory exists
     os.makedirs(eval_dir, exist_ok=True)
     # Path to the CSV file
-    file_path = os.path.join(eval_dir, 'classification_scores.csv')
+    file_path = os.path.join(eval_dir, 'TSTR_scores.csv')
     # Check if the file exists
     file_exists = os.path.exists(file_path)
     
