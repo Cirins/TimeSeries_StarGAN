@@ -204,7 +204,7 @@ class Solver(nn.Module):
         sample_all(nets_ema, args)
 
     # @torch.no_grad()
-    def evaluate(self, loaders):
+    def evaluate(self):
         args = self.args
         nets_ema = self.nets_ema
         resume_iter = args.resume_iter

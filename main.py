@@ -85,26 +85,7 @@ def main(args):
         solver.sample()
 
     elif args.mode == 'eval':
-        assert args.loss_type in ['minimax', 'wgan', 'lsgan']
-        assert args.n_critic == 1 or args.loss_type == 'wgan'
-        loaders = Munch(src=get_train_loader(dataset_name=args.dataset_name, 
-                                             class_names=args.class_names,
-                                             num_train_domains=args.num_train_domains,
-                                             which='source', 
-                                             batch_size=args.batch_size, 
-                                             num_workers=args.num_workers),
-                        ref=get_train_loader(dataset_name=args.dataset_name, 
-                                             class_names=args.class_names, 
-                                             num_train_domains=args.num_train_domains,
-                                             which='reference', 
-                                             batch_size=args.batch_size, 
-                                             num_workers=args.num_workers),
-                        val=get_eval_loader(dataset_name=args.dataset_name,  
-                                            class_names=args.class_names,
-                                            num_train_domains=args.num_train_domains,
-                                            batch_size=args.val_batch_size, 
-                                            num_workers=args.num_workers))
-        solver.evaluate(loaders)
+        solver.evaluate()
 
     else:
         raise NotImplementedError

@@ -102,7 +102,7 @@ def calculate_classification_scores(syn_data, syn_labels, syn_doms, src_class, t
         syn_labels_dom = syn_labels[syn_doms == domain]
         trg_labels_dom = trg_labels[trg_doms == domain]
 
-        print(f'Domain: {domain}, Source: {src_class}, Target: {trg_classes}, Syn data: {syn_data_dom.shape}, Trg data: {trg_data_dom.shape}\n')
+        print(f'\nDomain: {domain}, Source: {src_class}, Target: {trg_classes}, Syn data: {syn_data_dom.shape}, Trg data: {trg_data_dom.shape}')
         
         label_mapping = {old_label: new_label for new_label, old_label in enumerate(np.unique(syn_labels))}
         syn_labels_dom = np.array([label_mapping[x] for x in syn_labels_dom])
@@ -203,7 +203,7 @@ def train_model(model, train_loader, val_loader, loss_fn, optimizer, epochs=300)
         current_lr = scheduler.get_last_lr()[0]
         print(f"Epoch {epoch + 1}/{epochs} - Train loss: {total_loss:.4f} - Val loss: {val_loss:.4f} - Val accuracy: {val_accuracy:.4f} - LR: {current_lr:.6f}")
     
-    print(f"\nBest epoch: {best_epoch + 1} - Best val accuracy: {best_accuracy:.4f} - Best val loss: {best_loss:.4f}\n")
+    print(f"Best epoch: {best_epoch + 1} - Best val accuracy: {best_accuracy:.4f} - Best val loss: {best_loss:.4f}")
 
     return best_model_state
 

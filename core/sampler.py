@@ -70,12 +70,12 @@ def sample_all(nets, args):
     for i in range(args.num_syn):
         print(f'Generating samples in latent mode ({i+1}/{args.num_syn})')
         syn_data = sample_timeseries(nets, args, mode='latent')
-        with open(f'{args.syn_dir}/syndata_lat_{i+1}.pkl', 'wb') as f:
+        with open(f'{args.syn_dir}/{args.dataset}_syndata_lat_{i+1}.pkl', 'wb') as f:
             pickle.dump(syn_data, f)
 
         print(f'Generating samples in reference mode ({i+1}/{args.num_syn})')
         syn_data = sample_timeseries(nets, args, mode='reference')
-        with open(f'{args.syn_dir}/syndata_ref_{i+1}.pkl', 'wb') as f:
+        with open(f'{args.syn_dir}/{args.dataset}_syndata_ref_{i+1}.pkl', 'wb') as f:
             pickle.dump(syn_data, f)
 
     print(f'Finished generating samples in {time.time() - start_time:.2f} seconds')

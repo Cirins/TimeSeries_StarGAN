@@ -1,7 +1,7 @@
 import subprocess
 
 
-dataset = 'realworld' # 'realworld' or 'cwru'
+dataset = 'cwru' # 'realworld' or 'cwru'
 
 if dataset == 'realworld':
     dataset_name = 'realworld_128_3ch_4cl'
@@ -20,6 +20,7 @@ if dataset == 'realworld':
     lambda_ds = 1
 
     total_iters = 40000
+    resume_iter = 170000
 
 elif dataset == 'cwru':
     dataset_name = 'cwru_256_3ch_5cl'
@@ -38,10 +39,11 @@ elif dataset == 'cwru':
     lambda_ds = 1
 
     total_iters = 80000
+    resume_iter = 140000
 
 
 # Launch evaluation
-print('\n\nStarting evaluation phase...\n\n')
+# print('\n\nStarting evaluation phase...\n\n')
 subprocess.run(['python', 'main.py',
                 '--mode', 'eval',
                 '--dataset', dataset,
@@ -53,6 +55,6 @@ subprocess.run(['python', 'main.py',
                 '--num_train_domains', str(num_train_domains),
                 '--num_test_domains', str(num_test_domains),
                 '--num_classes', str(num_classes),
-                '--resume_iter', str(170000)])
+                '--resume_iter', str(resume_iter)])
 
 
