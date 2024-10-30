@@ -99,11 +99,7 @@ if __name__ == '__main__':
                         choices=['realworld', 'cwru'], help='Dataset')
     parser.add_argument('--dataset_name', type=str, default='realworld_128_3ch_4cl',
                         choices=['realworld_128_3ch_4cl', 'cwru_256_3ch_5cl'], help='Dataset name')
-    # parser.add_argument('--class_names', type=str, nargs='+', default=['WAL', 'RUN', 'CLD', 'CLU'],
-    #                     help='Class names for dataset')
     parser.add_argument('--class_names', type=str, required=True)
-    # parser.add_argument('--channel_names', type=str, nargs='+', default=['X', 'Y', 'Z'],
-    #                     help='Channel names for dataset')
     parser.add_argument('--channel_names', type=str, required=True)
 
     # model arguments
@@ -188,18 +184,6 @@ if __name__ == '__main__':
                         help='Seed for random number generator')
     parser.add_argument('--num_syn', type=int, default=1,
                         help='Number of synthetic datasets to generate')
-
-    # directory for training
-    # parser.add_argument('--sample_dir', type=str, default='expr/samples',
-    #                     help='Directory for saving generated samples')
-    # parser.add_argument('--checkpoint_dir', type=str, default='expr/checkpoints',
-    #                     help='Directory for saving network checkpoints')
-    # parser.add_argument('--history_dir', type=str, default='expr/history',
-    #                     help='Directory for saving training history')
-    # parser.add_argument('--eval_dir', type=str, default=f'expr/eval',
-    #                     help='Directory for saving metrics')
-    # parser.add_argument('--syn_dir', type=str, default='expr/syn_datasets',
-    #                     help='Directory for saving synthetic samples')
 
     # step size
     parser.add_argument('--print_every', type=int, default=100)
