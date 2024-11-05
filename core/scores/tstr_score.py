@@ -102,7 +102,7 @@ def calculate_classification_scores(syn_data, syn_labels, syn_doms, src_class, t
         syn_labels_dom = syn_labels[syn_doms == domain]
         trg_labels_dom = trg_labels[trg_doms == domain]
 
-        print(f'\nDomain: {domain}, Source: {src_class}, Target: {trg_classes}, Syn data: {syn_data_dom.shape}, Trg data: {trg_data_dom.shape}')
+        print(f'\nSource: {src_class}, Domain: {domain}, Target: {trg_classes}, Syn data: {syn_data_dom.shape}, Trg data: {trg_data_dom.shape}')
         
         label_mapping = {old_label: new_label for new_label, old_label in enumerate(np.unique(syn_labels))}
         syn_labels_dom = np.array([label_mapping[x] for x in syn_labels_dom])
@@ -110,7 +110,7 @@ def calculate_classification_scores(syn_data, syn_labels, syn_doms, src_class, t
 
         acc, logloss = compute_accuracy(syn_data_dom, syn_labels_dom, trg_data_dom, trg_labels_dom)
 
-        print(f'Domain: {domain}, Accuracy: {acc:.4f}, Logloss: {logloss:.4f}')
+        print(f'Source: {src_class}, Domain: {domain}, Accuracy: {acc:.4f}, Logloss: {logloss:.4f}')
         classification_scores = (acc, logloss)
         save_classification_scores(classification_scores, src_class, domain, step, mode, eval_dir, num_train_domains)
 
@@ -201,9 +201,10 @@ def train_model(model, train_loader, val_loader, loss_fn, optimizer, epochs=300)
         accuracy_val.append(val_accuracy)
 
         current_lr = scheduler.get_last_lr()[0]
-        print(f"Epoch {epoch + 1}/{epochs} - Train loss: {total_loss:.4f} - Val loss: {val_loss:.4f} - Val accuracy: {val_accuracy:.4f} - LR: {current_lr:.6f}")
+        if epoch % 10 == 0:
+            print(f"\tEpoch {epoch + 1}/{epochs} - Train loss: {total_loss:.4f} - Val loss: {val_loss:.4f} - Val accuracy: {val_accuracy:.4f} - LR: {current_lr:.6f}")
     
-    print(f"Best epoch: {best_epoch + 1} - Best val accuracy: {best_accuracy:.4f} - Best val loss: {best_loss:.4f}")
+    print(f"\tBest epoch: {best_epoch + 1} - Best val accuracy: {best_accuracy:.4f} - Best val loss: {best_loss:.4f}")
 
     return best_model_state
 

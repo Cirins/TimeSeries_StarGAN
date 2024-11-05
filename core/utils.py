@@ -119,7 +119,7 @@ def translate_using_reference(nets, args, x_src, y_src, x_ref, y_ref, filename):
 
 @torch.no_grad()
 def debug_sample(nets, args, inputs, step):
-    print('Saving debug samples...')
+    print('\nSaving debug samples...')
 
     start = time.time()
 

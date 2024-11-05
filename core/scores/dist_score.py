@@ -112,7 +112,7 @@ def calculate_dist_scores(siamese_net_te, x_fake, y_trg, k_fake, src_class, trg_
         avg_distances[k] = avg_distance
 
     avg_avg_distance = np.mean(list(avg_distances.values()))
-    print(f'Average distance: {avg_avg_distance}\n')
+    print(f'Average distance: {avg_avg_distance:.4f}\n')
 
     return avg_distances
 

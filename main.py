@@ -96,9 +96,9 @@ if __name__ == '__main__':
 
     # dataset arguments
     parser.add_argument('--dataset', type=str, default='realworld',
-                        choices=['realworld', 'cwru'], help='Dataset')
+                        choices=['realworld', 'cwru', 'realworld_mobiact'], help='Dataset')
     parser.add_argument('--dataset_name', type=str, default='realworld_128_3ch_4cl',
-                        choices=['realworld_128_3ch_4cl', 'cwru_256_3ch_5cl'], help='Dataset name')
+                        choices=['realworld_128_3ch_4cl', 'cwru_256_3ch_5cl', 'realworld_mobiact'], help='Dataset name')
     parser.add_argument('--class_names', type=str, required=True)
     parser.add_argument('--channel_names', type=str, required=True)
 

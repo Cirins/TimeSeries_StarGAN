@@ -38,12 +38,12 @@ class Solver(nn.Module):
 
         # Load the pretrained domain classifier
         print('Loading the pretrained domain classifier...')
-        self.domain_classifier_df.load_state_dict(torch.load(f'pretrained_nets/domain_classifier_{args.dataset}_df.ckpt', map_location=self.device))
+        self.domain_classifier_df.load_state_dict(torch.load(f'pretrained_nets/domain_classifier_{args.dataset}_df.ckpt', map_location=self.device, weights_only=False))
         self.domain_classifier_df.eval()
 
         # # Load the pretrained trts classifier
         # print('Loading the pretrained trts classifier...')
-        # self.trts_classifier_tr.load_state_dict(torch.load('pretrained_nets/trts_classifier_tr.ckpt', map_location=self.device))
+        # self.trts_classifier_tr.load_state_dict(torch.load('pretrained_nets/trts_classifier_tr.ckpt', map_location=self.device, weights_only=False))
         # self.trts_classifier_tr.eval()
 
         if args.mode == 'train' or args.mode == 'finetune':
@@ -70,6 +70,7 @@ class Solver(nn.Module):
                 network.apply(utils.he_init)
 
     def _save_checkpoint(self, step):
+        print('\nSaving checkpoints...')
         for ckptio in self.ckptios:
             ckptio.save(step)
 
@@ -113,7 +114,7 @@ class Solver(nn.Module):
 
         start_time = time.time()
 
-        print('Start training...')
+        print('\nStart training...')
         for i in range(args.resume_iter, args.total_iters):
             # fetch samples and labels
             inputs = next(fetcher)
